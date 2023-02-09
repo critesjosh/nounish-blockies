@@ -15,136 +15,104 @@ contract Blockies is ERC721 {
 
     constructor() ERC721("Blockies", "BLKS") {}
 
-    function safeMint() payable public {
+    function safeMint() public payable {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(msg.sender, tokenId);
         recipient.transfer(msg.value);
     }
 
-    function tokenURI(uint256 _tokenId) public view
-        override
-        returns (string memory)
-    {
-        bytes memory addressToRender = toAsciiBytes(this.ownerOf(_tokenId));
-        uint256 size = 8;
-        uint256 scale = 2;
+    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
+        address addressToRender = this.ownerOf(_tokenId);
 
-        int256[4] memory randseed;
-        for (uint256 i = 0; i < addressToRender.length; i++) {
-            randseed[i % 4] = (randseed[i % 4] << 5) - randseed[i % 4] + int8(uint8(addressToRender[i]));
-	    }
+        bytes32 randomNum = keccak256(abi.encodePacked(addressToRender));
+
         string memory color;
         string memory bgcolor;
         string memory spotColor;
-        (randseed, color) = createColor(randseed);
-        (randseed, bgcolor) = createColor(randseed);
-        (randseed, spotColor) = createColor(randseed);
-        uint256[8] memory imageData = createImageData(randseed);
+        (randomNum, color) = createColor(randomNum);
+        (randomNum, bgcolor) = createColor(randomNum);
+        (randomNum, spotColor) = createColor(randomNum);
+        uint256[64] memory imageData = createImageData(randomNum);
 
-        string memory svgMarkup = "<svg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'><rect width='16' height='16' fill='";
-		svgMarkup = string.concat(svgMarkup, bgcolor, "'/><g fill='", color, "'>");
-        for(uint256 i = 0; i < 8; i++){
-            if(imageData[i] == 1){
+        uint size = 8;
+        uint scale = 10;
+
+        string memory svgMarkup =
+            "<svg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'><rect width='80' height='80' fill='";
+        svgMarkup = string.concat(svgMarkup, bgcolor, "'/><g fill='", color, "'>");
+        for (uint256 i = 0; i < 64; i++) {
+            if (imageData[i] == 1) {
                 string memory row = Strings.toString((i % size) * scale);
-                string memory col = Strings.toString((i / size) / 2 * scale);
-                svgMarkup = string.concat(svgMarkup, "<rect width='2' height='2' x='", row, "' y='", col, "' />");
+                string memory col = Strings.toString((i / size) * scale);
+                svgMarkup = string.concat(svgMarkup, "<rect width='", Strings.toString(scale), "' height='", Strings.toString(scale),"' x='", row, "' y='", col, "' />");
             }
         }
         svgMarkup = string.concat(svgMarkup, "</g><g fill='", spotColor, "'>");
-        for(uint256 i = 0; i < 8; i++){
-            if(imageData[i] == 2){
+        for (uint256 i = 0; i < 64; i++) {
+            if (imageData[i] == 2) {
                 string memory row = Strings.toString((i % size) * scale);
-                string memory col = Strings.toString((i / size) / 2 * scale);
-                svgMarkup = string.concat(svgMarkup, "<rect width='2' height='2' x='", row, "' y='", col, "' />");
+                string memory col = Strings.toString((i / size) * scale);
+                svgMarkup = string.concat(svgMarkup, "<rect width='", Strings.toString(scale), "' height='", Strings.toString(scale),"' x='", row, "' y='", col, "' />");
             }
         }
         svgMarkup = string.concat(svgMarkup, "</g></svg>");
         return string.concat("data:image/svg+xml;base64,", Base64.encode(bytes(svgMarkup)));
     }
 
-    function toAsciiBytes(address x) internal pure returns (bytes memory) {
-        bytes memory s = new bytes(40);
-        for (uint i = 0; i < 20; i++) {
-            bytes1 b = bytes1(uint8(uint(uint160(x)) / (2**(8*(19 - i)))));
-            bytes1 hi = bytes1(uint8(b) / 16);
-            bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
-            s[2*i] = char(hi);
-            s[2*i+1] = char(lo);            
-        }
-        return s;
-    }
+    function rand(bytes32 randomNum) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(randomNum));
+   }
 
-    function char(bytes1 b) internal pure returns (bytes1 c) {
-        if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
-        else return bytes1(uint8(b) + 0x57);
-    }
-
-    function rand(int256[4] memory _randseed) public pure returns(int256[4] memory, uint256){
-        // based on Java's String.hashCode(), expanded to 4 32bit values
-        int256 t = _randseed[0] ^ (_randseed[0] << 11);
-
-        _randseed[0] = _randseed[1];
-        _randseed[1] = _randseed[2];
-        _randseed[2] = _randseed[3];
-        _randseed[3] = _randseed[3] ^ (_randseed[3] >> 19) ^ t ^ (t >> 8);
-
-        return (_randseed, uint256(_randseed[3] >> 0) / uint256((1 << 31) >> 0));
-    }
-
-    function createColor(int256[4] memory _randseed) public pure returns (int256[4] memory, string memory) {
+    function createColor(bytes32 randomNum) public pure returns (bytes32, string memory) {
         //saturation is the whole color spectrum
-        uint256 x;
-        (_randseed, x) = rand(_randseed);
-        string memory h = Strings.toString(uint(x * 360) / 2);
-        uint256 y;
-        (_randseed, y) = rand(_randseed);
+        randomNum = rand(randomNum);
+        string memory h = Strings.toString((uint256(randomNum) % 100) * 36 / 10);
+        randomNum = rand(randomNum);
         //saturation goes from 40 to 100, it avoids greyish colors
-        string memory s = string.concat(Strings.toString(uint(y * 60 + 40) / 2), '%');
+        string memory s = string.concat(Strings.toString(((uint256(randomNum) % 60) + 40)), "%");
 
-        uint256 a;
-        uint256 b;
-        uint256 c;
-        uint256 d;
-        (_randseed, a) = rand(_randseed);
-        (_randseed, b) = rand(_randseed);
-        (_randseed, c) = rand(_randseed);
-        (_randseed, d) = rand(_randseed);
+        randomNum = rand(randomNum);
+        uint256 a = uint256(randomNum) % 100;
+        randomNum = rand(randomNum);
+        uint256 b = uint256(randomNum) % 100;
+        randomNum = rand(randomNum);
+        uint256 c = uint256(randomNum) % 100;
+        randomNum = rand(randomNum);
+        uint256 d = uint256(randomNum) % 100;
         //lightness can be anything from 0 to 100, but probabilities are a bell curve around 50%
-        string memory l = string.concat(Strings.toString(uint(a+b+c+d) * 25 / 2), '%');
-        return (_randseed, string.concat("hsl(", h, ",",s,",",l,")"));
+        string memory l = string.concat(Strings.toString((a + b + c + d) / 4), "%");
+        return (randomNum, string.concat("hsl(", h, ",", s, ",", l, ")"));
     }
 
-    function createImageData(int256[4] memory _randseed) internal pure returns (uint[8] memory) {
-        uint[8] memory data;
-        for (uint8 y = 0; y < 4; y++) {
+    function createImageData(bytes32 randomNum) internal pure returns (uint256[64] memory) {
+        uint256[64] memory data;
+        for (uint8 y = 0; y < 8; y++) {
             uint256[4] memory row;
             for (uint8 x = 0; x < 4; x++) {
                 // this makes foreground and background color to have a 43% (1/2.3) probability
                 // spot color has 13% chance
-                uint256 a;
-                (_randseed, a) = rand(_randseed);
-                uint value = uint256(a * 23 / 10) / 2;
+                randomNum = rand(randomNum);
+                uint256 value = uint256(randomNum) % 100 * 23 / 1000;
                 row[x] = value;
-                data[x] = value;
+                data[y*8 + x] = value;
             }
-            uint[4] memory r = reverseArray(row);
-            for(uint i; i < 4; i++) {
-                data[i+4] = r[i];
+            uint256[4] memory r = reverseArray(row);
+            for (uint256 i; i < 4; i++) {
+                data[y*8 + i + 4] = r[i];
             }
         }
 
         return data;
-    }    
+    }
 
-    function reverseArray(uint[4] memory _array) public pure returns(uint[4] memory) {
-        uint[4] memory reversedArray;
-        uint j = 0;
-        for(uint i = 4; i >= 1; i--) {
-            reversedArray[j] = _array[i-1];
+    function reverseArray(uint256[4] memory _array) public pure returns (uint256[4] memory) {
+        uint256[4] memory reversedArray;
+        uint256 j = 0;
+        for (uint256 i = 4; i >= 1; i--) {
+            reversedArray[j] = _array[i - 1];
             j++;
         }
         return reversedArray;
     }
-
 }
