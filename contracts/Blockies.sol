@@ -33,15 +33,15 @@ contract Blockies is ERC721 {
         (randomNum, color) = createColor(randomNum);
         (randomNum, bgcolor) = createColor(randomNum);
         (randomNum, spotColor) = createColor(randomNum);
-        uint256[64] memory imageData = createImageData(randomNum);
+        uint256[256] memory imageData = createImageData(randomNum);
 
-        uint size = 8;
-        uint scale = 10;
+        uint size = 16;
+        uint scale = 5;
 
         string memory svgMarkup =
             "<svg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'><rect width='80' height='80' fill='";
         svgMarkup = string.concat(svgMarkup, bgcolor, "'/><g fill='", color, "'>");
-        for (uint256 i = 0; i < 64; i++) {
+        for (uint256 i = 0; i < 256; i++) {
             if (imageData[i] == 1) {
                 string memory row = Strings.toString((i % size) * scale);
                 string memory col = Strings.toString((i / size) * scale);
@@ -49,7 +49,7 @@ contract Blockies is ERC721 {
             }
         }
         svgMarkup = string.concat(svgMarkup, "</g><g fill='", spotColor, "'>");
-        for (uint256 i = 0; i < 64; i++) {
+        for (uint256 i = 0; i < 256; i++) {
             if (imageData[i] == 2) {
                 string memory row = Strings.toString((i % size) * scale);
                 string memory col = Strings.toString((i / size) * scale);
@@ -85,31 +85,31 @@ contract Blockies is ERC721 {
         return (randomNum, string.concat("hsl(", h, ",", s, ",", l, ")"));
     }
 
-    function createImageData(bytes32 randomNum) internal pure returns (uint256[64] memory) {
-        uint256[64] memory data;
-        for (uint8 y = 0; y < 8; y++) {
-            uint256[4] memory row;
-            for (uint8 x = 0; x < 4; x++) {
+    function createImageData(bytes32 randomNum) internal pure returns (uint256[256] memory) {
+        uint256[256] memory data;
+        for (uint8 y = 0; y < 16; y++) {
+            uint256[8] memory row;
+            for (uint8 x = 0; x < 8; x++) {
                 // this makes foreground and background color to have a 43% (1/2.3) probability
                 // spot color has 13% chance
                 randomNum = rand(randomNum);
                 uint256 value = uint256(randomNum) % 100 * 23 / 1000;
                 row[x] = value;
-                data[y*8 + x] = value;
+                data[y*16 + x] = value;
             }
-            uint256[4] memory r = reverseArray(row);
-            for (uint256 i; i < 4; i++) {
-                data[y*8 + i + 4] = r[i];
+            uint256[8] memory r = reverseArray(row);
+            for (uint256 i; i < 8; i++) {
+                data[y*16 + i + 8] = r[i];
             }
         }
 
         return data;
     }
 
-    function reverseArray(uint256[4] memory _array) public pure returns (uint256[4] memory) {
-        uint256[4] memory reversedArray;
+    function reverseArray(uint256[8] memory _array) public pure returns (uint256[8] memory) {
+        uint256[8] memory reversedArray;
         uint256 j = 0;
-        for (uint256 i = 4; i >= 1; i--) {
+        for (uint256 i = 8; i >= 1; i--) {
             reversedArray[j] = _array[i - 1];
             j++;
         }
