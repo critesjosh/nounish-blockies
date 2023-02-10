@@ -6,20 +6,41 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 
+import {INounsSeeder} from "./interfaces/INounsSeeder.sol";
+import {MultiPartRLEToSVG} from "./libs/MultiPartRLEToSVG.sol";
+import {NounsDescriptorV2} from "./NounsDescriptorV2.sol";
+import {ISVGRenderer} from "./interfaces/ISVGRenderer.sol";
+
 contract Blockies is ERC721 {
     using Counters for Counters.Counter;
 
-    address payable recipient = payable(0x7D678b9218aC289e0C9F18c82F546c988BfE3022);
+    INounsSeeder public seeder;
+    NounsDescriptorV2 public descriptor;
 
     Counters.Counter private _tokenIdCounter;
 
-    constructor() ERC721("Blockies", "BLKS") {}
+    constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
+        seeder = INounsSeeder(_seeder);
+        descriptor = INounsDescriptorV2(_descriptor);
+    }
 
     function safeMint() public payable {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(msg.sender, tokenId);
-        recipient.transfer(msg.value);
+    }
+
+    function getSeed() internal view returns (INounsSeeder.Seed memory) {
+        uint256 tokenId = _tokenIdCounter.current() + 1;
+        return seeder.generateSeed(tokenId, address(descriptor));
+    }
+
+    function getPartsForSeed(INounsSeeder.Seed memory seed) internal view returns (ISVGRenderer.Part[] memory) {
+        return descriptor.getPartsForSeed(seed);
+    }
+
+    function getBackground(INounsSeeder.Seed memory seed) internal view returns (string memory){
+        return descriptor.backgrounds(seed.background);
     }
 
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
@@ -35,17 +56,45 @@ contract Blockies is ERC721 {
         (randomNum, spotColor) = createColor(randomNum);
         uint256[144] memory imageData = createImageData(randomNum);
 
-        uint size = 12;
-        uint scale = 10;
+        uint256 size = 12;
+        uint256 scale = 10;
 
-        string memory svgMarkup = string.concat("<svg width='",Strings.toString(size * scale) ,"' height='",Strings.toString(size * scale) , "' viewBox='0 0 ",Strings.toString(size * scale) ," ",Strings.toString(size * scale) ,"' xmlns='http://www.w3.org/2000/svg'>");
-        svgMarkup = string.concat(svgMarkup, "<rect width='",Strings.toString(size * scale) ,"' height='",Strings.toString(size * scale) , "' fill='");
+        string memory svgMarkup = string.concat(
+            "<svg width='",
+            Strings.toString(size * scale),
+            "' height='",
+            Strings.toString(size * scale),
+            "' viewBox='0 0 ",
+            Strings.toString(size * scale),
+            " ",
+            Strings.toString(size * scale),
+            "' xmlns='http://www.w3.org/2000/svg'>"
+        );
+        svgMarkup = string.concat(
+            svgMarkup,
+            "<rect width='",
+            Strings.toString(size * scale),
+            "' height='",
+            Strings.toString(size * scale),
+            "' fill='"
+        );
         svgMarkup = string.concat(svgMarkup, bgcolor, "'/><g fill='", color, "'>");
         for (uint256 i = 0; i < 144; i++) {
             if (imageData[i] == 1) {
                 string memory row = Strings.toString((i % size) * scale);
                 string memory col = Strings.toString((i / size) * scale);
-                svgMarkup = string.concat(svgMarkup, "<rect width='", Strings.toString(scale), "' height='", Strings.toString(scale),"' x='", row, "' y='", col, "' />");
+                svgMarkup = string.concat(
+                    svgMarkup,
+                    "<rect width='",
+                    Strings.toString(scale),
+                    "' height='",
+                    Strings.toString(scale),
+                    "' x='",
+                    row,
+                    "' y='",
+                    col,
+                    "' />"
+                );
             }
         }
         svgMarkup = string.concat(svgMarkup, "</g><g fill='", spotColor, "'>");
@@ -53,7 +102,18 @@ contract Blockies is ERC721 {
             if (imageData[i] == 2) {
                 string memory row = Strings.toString((i % size) * scale);
                 string memory col = Strings.toString((i / size) * scale);
-                svgMarkup = string.concat(svgMarkup, "<rect width='", Strings.toString(scale), "' height='", Strings.toString(scale),"' x='", row, "' y='", col, "' />");
+                svgMarkup = string.concat(
+                    svgMarkup,
+                    "<rect width='",
+                    Strings.toString(scale),
+                    "' height='",
+                    Strings.toString(scale),
+                    "' x='",
+                    row,
+                    "' y='",
+                    col,
+                    "' />"
+                );
             }
         }
         svgMarkup = string.concat(svgMarkup, "</g></svg>");
@@ -62,7 +122,7 @@ contract Blockies is ERC721 {
 
     function rand(bytes32 randomNum) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(randomNum));
-   }
+    }
 
     function createColor(bytes32 randomNum) public pure returns (bytes32, string memory) {
         //saturation is the whole color spectrum
@@ -95,11 +155,11 @@ contract Blockies is ERC721 {
                 randomNum = rand(randomNum);
                 uint256 value = uint256(randomNum) % 100 * 23 / 1000;
                 row[x] = value;
-                data[y*12 + x] = value;
+                data[y * 12 + x] = value;
             }
             uint256[6] memory r = reverseArray(row);
             for (uint256 i; i < 6; i++) {
-                data[y*12 + i + 6] = r[i];
+                data[y * 12 + i + 6] = r[i];
             }
         }
 
