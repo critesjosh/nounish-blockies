@@ -10,6 +10,7 @@ import {INounsSeeder} from "./interfaces/INounsSeeder.sol";
 import {MultiPartRLEToSVG} from "./libs/MultiPartRLEToSVG.sol";
 import {NounsDescriptorV2} from "./NounsDescriptorV2.sol";
 import {ISVGRenderer} from "./interfaces/ISVGRenderer.sol";
+import {NFTDescriptorV2} from './libs/NFTDescriptorV2.sol';
 
 contract Blockies is ERC721 {
     using Counters for Counters.Counter;
@@ -23,7 +24,7 @@ contract Blockies is ERC721 {
 
     constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
         seeder = INounsSeeder(_seeder);
-        descriptor = INounsDescriptorV2(_descriptor);
+        descriptor = NounsDescriptorV2(_descriptor);
     }
 
     function safeMint() public payable {
@@ -38,15 +39,15 @@ contract Blockies is ERC721 {
         // if(owner == address(0)){
         //     error NoOwner();
         // }
-        uint256[144] imagedata = createImageData(getTokenRandomness(tokenId));
+        uint256[144] memory imagedata = createImageData(getTokenRandomness(tokenId));
 
         bytes memory headImage;
 
-        bytes memory palatte = 0x00;
-        bytes memory top = 0x05;
-        bytes memory right = 0x17;
-        bytes memory bottom = 0x14;
-        bytes memory left = 0x08;
+        bytes1 palatte = 0x00;
+        bytes1 top = 0x05;
+        bytes1 right = 0x17;
+        bytes1 bottom = 0x14;
+        bytes1 left = 0x08;
 
         headImage.push(palatte);
         headImage.push(top);
@@ -55,7 +56,7 @@ contract Blockies is ERC721 {
         headImage.push(left);
 
         // uint256 palleteLength = 1431;
-        uint256[3] colors = createColors(getTokenRandomness(tokenId), 16);
+        uint256[3] memory colors = createColors(getTokenRandomness(tokenId), 16);
 
         for (uint256 i = 0; i < 144; i++) {
             headImage.push(0x01);
@@ -65,24 +66,24 @@ contract Blockies is ERC721 {
     }
 
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        INounsSeeder.seed seed = getSeed(_tokenId);
+        INounsSeeder.Seed memory seed = getSeed(_tokenId);
         ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
         bytes memory headImage = getHeadImage(_tokenId);
-        parts[2] = ISVGRenderer.Part({ image: head, palette: _getPalette(head) });
+        parts[2] = ISVGRenderer.Part({ image: headImage, palette: _getPalette(headImage) });
         
         uint8 randomBackground = uint8(getTokenRandomness(_tokenId)) % 2;
         string memory background = descriptor.backgrounds();
         
         NFTDescriptorV2.TokenURIParams memory params = NFTDescriptorV2.TokenURIParams({
-            name: name,
-            description: description,
+            name: "My token that i will name later",
+            description: "test token",
             parts: getPartsForSeed(seed),
             background: background
         });
-        return NFTDescriptorV2.constructTokenURI(renderer, params);
+        return NFTDescriptorV2.constructTokenURI(descriptor.renderer(), params);
     }
 
-    function createColors(bytes32 randomNum, uint256 maxValue) public pure returns (uint256[3]) {
+    function createColors(bytes32 randomNum, uint256 maxValue) public pure returns (uint256[3] memory) {
         uint a;
         uint b;
         uint c;
