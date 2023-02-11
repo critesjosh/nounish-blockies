@@ -32,19 +32,6 @@ contract Blockies is ERC721 {
         _safeMint(msg.sender, tokenId);
     }
 
-    function getSeed(uint256 tokenId) internal view returns (INounsSeeder.Seed memory) {
-        // uint256 tokenId = _tokenIdCounter.current() + 1;
-        return seeder.generateSeed(tokenId, address(descriptor));
-    }
-
-    function getPartsForSeed(INounsSeeder.Seed memory seed) internal view returns (ISVGRenderer.Part[] memory) {
-        return descriptor.getPartsForSeed(seed);
-    }
-
-    function getBackground(INounsSeeder.Seed memory seed) internal view returns (string memory){
-        return descriptor.backgrounds(seed.background);
-    }
-
     // Palette Index, Bounds [Top (Y), Right (X), Bottom (Y), Left (X)] (4 Bytes), 
     // [Pixel Length (1 Byte), Color Index (1 Byte)][]
     function getHeadImage(uint tokenId) public returns (bytes memory){
@@ -75,19 +62,6 @@ contract Blockies is ERC721 {
             headImage.push(colors[imagedata[i]]);
         }
         return headImage;
-    }
-
-    function getTokenRandomness(uint256 _tokenId) public returns (bytes32) {
-        address addressToRender = this.ownerOf(_tokenId);
-        bytes32 randomNum = keccak256(abi.encodePacked(addressToRender));
-    }
-
-    function moreRandom(bytes32 randomNum) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(randomNum));
-    }
-
-    function _getPalette(bytes memory part) internal returns (bytes memory) {
-        return descriptor.palettes(uint8(part[0]));
     }
 
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
@@ -151,4 +125,31 @@ contract Blockies is ERC721 {
         }
         return reversedArray;
     }
+    
+    function getSeed(uint256 tokenId) internal view returns (INounsSeeder.Seed memory) {
+        // uint256 tokenId = _tokenIdCounter.current() + 1;
+        return seeder.generateSeed(tokenId, address(descriptor));
+    }
+
+    function getPartsForSeed(INounsSeeder.Seed memory seed) internal view returns (ISVGRenderer.Part[] memory) {
+        return descriptor.getPartsForSeed(seed);
+    }
+
+    function getBackground(INounsSeeder.Seed memory seed) internal view returns (string memory){
+        return descriptor.backgrounds(seed.background);
+    }
+    
+    function getTokenRandomness(uint256 _tokenId) public returns (bytes32) {
+        address addressToRender = this.ownerOf(_tokenId);
+        bytes32 randomNum = keccak256(abi.encodePacked(addressToRender));
+    }
+
+    function moreRandom(bytes32 randomNum) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(randomNum));
+    }
+
+    function _getPalette(bytes memory part) internal returns (bytes memory) {
+        return descriptor.palettes(uint8(part[0]));
+    }
+
 }
