@@ -19,6 +19,8 @@ contract Blockies is ERC721 {
 
     Counters.Counter private _tokenIdCounter;
 
+    error NoOwner();
+
     constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
         seeder = INounsSeeder(_seeder);
         descriptor = INounsDescriptorV2(_descriptor);
@@ -30,8 +32,8 @@ contract Blockies is ERC721 {
         _safeMint(msg.sender, tokenId);
     }
 
-    function getSeed() internal view returns (INounsSeeder.Seed memory) {
-        uint256 tokenId = _tokenIdCounter.current() + 1;
+    function getSeed(uint256 tokenId) internal view returns (INounsSeeder.Seed memory) {
+        // uint256 tokenId = _tokenIdCounter.current() + 1;
         return seeder.generateSeed(tokenId, address(descriptor));
     }
 
@@ -43,106 +45,80 @@ contract Blockies is ERC721 {
         return descriptor.backgrounds(seed.background);
     }
 
-    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        address addressToRender = this.ownerOf(_tokenId);
+    // Palette Index, Bounds [Top (Y), Right (X), Bottom (Y), Left (X)] (4 Bytes), 
+    // [Pixel Length (1 Byte), Color Index (1 Byte)][]
+    function getHeadImage(uint tokenId) public returns (bytes memory){
+        // if(owner == address(0)){
+        //     error NoOwner();
+        // }
+        uint256[144] imagedata = createImageData(getTokenRandomness(tokenId));
 
-        bytes32 randomNum = keccak256(abi.encodePacked(addressToRender));
+        bytes memory headImage;
 
-        string memory color;
-        string memory bgcolor;
-        string memory spotColor;
-        (randomNum, color) = createColor(randomNum);
-        (randomNum, bgcolor) = createColor(randomNum);
-        (randomNum, spotColor) = createColor(randomNum);
-        uint256[144] memory imageData = createImageData(randomNum);
+        bytes memory palatte = 0x00;
+        bytes memory top = 0x05;
+        bytes memory right = 0x17;
+        bytes memory bottom = 0x14;
+        bytes memory left = 0x08;
 
-        uint256 size = 12;
-        uint256 scale = 10;
+        headImage.push(palatte);
+        headImage.push(top);
+        headImage.push(right);
+        headImage.push(bottom);
+        headImage.push(left);
 
-        string memory svgMarkup = string.concat(
-            "<svg width='",
-            Strings.toString(size * scale),
-            "' height='",
-            Strings.toString(size * scale),
-            "' viewBox='0 0 ",
-            Strings.toString(size * scale),
-            " ",
-            Strings.toString(size * scale),
-            "' xmlns='http://www.w3.org/2000/svg'>"
-        );
-        svgMarkup = string.concat(
-            svgMarkup,
-            "<rect width='",
-            Strings.toString(size * scale),
-            "' height='",
-            Strings.toString(size * scale),
-            "' fill='"
-        );
-        svgMarkup = string.concat(svgMarkup, bgcolor, "'/><g fill='", color, "'>");
+        // uint256 palleteLength = 1431;
+        uint256[3] colors = createColors(getTokenRandomness(tokenId), 16);
+
         for (uint256 i = 0; i < 144; i++) {
-            if (imageData[i] == 1) {
-                string memory row = Strings.toString((i % size) * scale);
-                string memory col = Strings.toString((i / size) * scale);
-                svgMarkup = string.concat(
-                    svgMarkup,
-                    "<rect width='",
-                    Strings.toString(scale),
-                    "' height='",
-                    Strings.toString(scale),
-                    "' x='",
-                    row,
-                    "' y='",
-                    col,
-                    "' />"
-                );
-            }
+            headImage.push(0x01);
+            headImage.push(colors[imagedata[i]]);
         }
-        svgMarkup = string.concat(svgMarkup, "</g><g fill='", spotColor, "'>");
-        for (uint256 i = 0; i < 144; i++) {
-            if (imageData[i] == 2) {
-                string memory row = Strings.toString((i % size) * scale);
-                string memory col = Strings.toString((i / size) * scale);
-                svgMarkup = string.concat(
-                    svgMarkup,
-                    "<rect width='",
-                    Strings.toString(scale),
-                    "' height='",
-                    Strings.toString(scale),
-                    "' x='",
-                    row,
-                    "' y='",
-                    col,
-                    "' />"
-                );
-            }
-        }
-        svgMarkup = string.concat(svgMarkup, "</g></svg>");
-        return string.concat("data:image/svg+xml;base64,", Base64.encode(bytes(svgMarkup)));
+        return headImage;
     }
 
-    function rand(bytes32 randomNum) public pure returns (bytes32) {
+    function getTokenRandomness(uint256 _tokenId) public returns (bytes32) {
+        address addressToRender = this.ownerOf(_tokenId);
+        bytes32 randomNum = keccak256(abi.encodePacked(addressToRender));
+    }
+
+    function moreRandom(bytes32 randomNum) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(randomNum));
     }
 
-    function createColor(bytes32 randomNum) public pure returns (bytes32, string memory) {
-        //saturation is the whole color spectrum
-        randomNum = rand(randomNum);
-        string memory h = Strings.toString((uint256(randomNum) % 100) * 36 / 10);
-        randomNum = rand(randomNum);
-        //saturation goes from 40 to 100, it avoids greyish colors
-        string memory s = string.concat(Strings.toString(((uint256(randomNum) % 60) + 40)), "%");
+    function _getPalette(bytes memory part) internal returns (bytes memory) {
+        return descriptor.palettes(uint8(part[0]));
+    }
 
-        randomNum = rand(randomNum);
-        uint256 a = uint256(randomNum) % 100;
-        randomNum = rand(randomNum);
-        uint256 b = uint256(randomNum) % 100;
-        randomNum = rand(randomNum);
-        uint256 c = uint256(randomNum) % 100;
-        randomNum = rand(randomNum);
-        uint256 d = uint256(randomNum) % 100;
-        //lightness can be anything from 0 to 100, but probabilities are a bell curve around 50%
-        string memory l = string.concat(Strings.toString((a + b + c + d) / 4), "%");
-        return (randomNum, string.concat("hsl(", h, ",", s, ",", l, ")"));
+    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
+        INounsSeeder.seed seed = getSeed(_tokenId);
+        ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
+        bytes memory headImage = getHeadImage(_tokenId);
+        parts[2] = ISVGRenderer.Part({ image: head, palette: _getPalette(head) });
+        
+        uint8 randomBackground = uint8(getTokenRandomness(_tokenId)) % 2;
+        string memory background = descriptor.backgrounds();
+        
+        NFTDescriptorV2.TokenURIParams memory params = NFTDescriptorV2.TokenURIParams({
+            name: name,
+            description: description,
+            parts: getPartsForSeed(seed),
+            background: background
+        });
+        return NFTDescriptorV2.constructTokenURI(renderer, params);
+    }
+
+    function createColors(bytes32 randomNum, uint256 maxValue) public pure returns (uint256[3]) {
+        uint a;
+        uint b;
+        uint c;
+        randomNum = moreRandom(randomNum);
+        a = randomNum % maxValue;
+        randomNum = moreRandom(randomNum);
+        b = randomNum % maxValue;
+        randomNum = moreRandom(randomNum);
+        c = randomNum % maxValue;
+        return [a,b,c];
     }
 
     function createImageData(bytes32 randomNum) internal pure returns (uint256[144] memory) {
@@ -152,7 +128,7 @@ contract Blockies is ERC721 {
             for (uint8 x = 0; x < 6; x++) {
                 // this makes foreground and background color to have a 43% (1/2.3) probability
                 // spot color has 13% chance
-                randomNum = rand(randomNum);
+                randomNum = moreRandom(randomNum);
                 uint256 value = uint256(randomNum) % 100 * 23 / 1000;
                 row[x] = value;
                 data[y * 12 + x] = value;
