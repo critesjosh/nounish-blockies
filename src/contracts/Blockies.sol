@@ -41,26 +41,21 @@ contract Blockies is ERC721 {
         // }
         uint256[144] memory imagedata = createImageData(getTokenRandomness(tokenId));
 
-        bytes memory headImage;
+        bytes memory headImage = [0x0005171708];
 
-        bytes1 palatte = 0x00;
-        bytes1 top = 0x05;
-        bytes1 right = 0x17;
-        bytes1 bottom = 0x14;
-        bytes1 left = 0x08;
-
-        headImage.push(palatte);
-        headImage.push(top);
-        headImage.push(right);
-        headImage.push(bottom);
-        headImage.push(left);
+        // headImage[0] = [0x00]; //palatte;
+        // headImage[1] = 0x05; //top;
+        // headImage[2] = 0x17; //right;
+        // headImage[3] = 0x14; //bottom;
+        // headImage[4] = 0x08; //left;
 
         // uint256 palleteLength = 1431;
         uint256[3] memory colors = createColors(getTokenRandomness(tokenId), 16);
 
         for (uint256 i = 0; i < 144; i++) {
-            headImage.push(0x01);
-            headImage.push(colors[imagedata[i]]);
+            headImage = bytes.concat(headImage, abi.encodePacked(uint(1)), abi.encodePacked(colors[imagedata[i]]));
+            // headImage.push(0x01);
+            // headImage.push(colors[imagedata[i]]);
         }
         return headImage;
     }
@@ -71,8 +66,8 @@ contract Blockies is ERC721 {
         bytes memory headImage = getHeadImage(_tokenId);
         parts[2] = ISVGRenderer.Part({ image: headImage, palette: _getPalette(headImage) });
         
-        uint8 randomBackground = uint8(getTokenRandomness(_tokenId)) % 2;
-        string memory background = descriptor.backgrounds();
+        uint256 randomBackground = uint(getTokenRandomness(_tokenId)) % 2;
+        string memory background = descriptor.backgrounds(randomBackground);
         
         NFTDescriptorV2.TokenURIParams memory params = NFTDescriptorV2.TokenURIParams({
             name: "My token that i will name later",
@@ -88,11 +83,11 @@ contract Blockies is ERC721 {
         uint b;
         uint c;
         randomNum = moreRandom(randomNum);
-        a = randomNum % maxValue;
+        a = uint(randomNum) % maxValue;
         randomNum = moreRandom(randomNum);
-        b = randomNum % maxValue;
+        b = uint(randomNum) % maxValue;
         randomNum = moreRandom(randomNum);
-        c = randomNum % maxValue;
+        c = uint(randomNum) % maxValue;
         return [a,b,c];
     }
 
@@ -129,7 +124,7 @@ contract Blockies is ERC721 {
     
     function getSeed(uint256 tokenId) internal view returns (INounsSeeder.Seed memory) {
         // uint256 tokenId = _tokenIdCounter.current() + 1;
-        return seeder.generateSeed(tokenId, address(descriptor));
+        return seeder.generateSeed(tokenId, descriptor);
     }
 
     function getPartsForSeed(INounsSeeder.Seed memory seed) internal view returns (ISVGRenderer.Part[] memory) {
