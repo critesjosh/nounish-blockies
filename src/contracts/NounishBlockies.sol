@@ -99,7 +99,7 @@ contract NouniesBlockies is ERC721 {
     function getColor(bytes32 randomNum) internal pure returns (bytes32, uint8) {
         randomNum = moreRandom(randomNum);
         // palette length is 239 colors
-        return (randomNum, uint8(uint256(randomNum) % 238) + 1); // avoid clear
+        return (randomNum, uint8(uint256(randomNum) % 237) + 2); // avoid clear and black
     }
 
     function createImageData(bytes32 randomNum) internal pure returns (uint8[256] memory) {
