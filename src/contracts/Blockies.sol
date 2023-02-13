@@ -15,15 +15,13 @@ import {NFTDescriptorV2} from "./libs/NFTDescriptorV2.sol";
 contract Blockies is ERC721 {
     using Counters for Counters.Counter;
 
-    INounsSeeder public seeder;
     NounsDescriptorV2 public descriptor;
 
     Counters.Counter private _tokenIdCounter;
 
     error NoOwner();
 
-    constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
-        seeder = INounsSeeder(_seeder);
+    constructor(address _descriptor) ERC721("Blockies", "BLKS") {
         descriptor = NounsDescriptorV2(_descriptor);
     }
 
@@ -34,48 +32,72 @@ contract Blockies is ERC721 {
         // _safeMint(msg.sender, tokenId);
     }
 
-    // Palette Index, Bounds [Top (Y), Right (X), Bottom (Y), Left (X)] (4 Bytes),
-    // [Pixel Length (1 Byte), Color Index (1 Byte)][]
-    function getHeadImage(uint256 tokenId) public view returns (bytes memory) {
-        // if(owner == address(0)){
-        //     error NoOwner();
-        // }
-        uint8[256] memory imagedata = createImageData(getTokenRandomness(tokenId));
-
-        bytes memory headImage;
-
-        headImage = bytes.concat(
-            abi.encodePacked(uint8(0)), // palette
-            abi.encodePacked(uint8(5)), // top
-            abi.encodePacked(uint8(24)), // right
-            abi.encodePacked(uint8(20)), // bottom
-            abi.encodePacked(uint8(8)) // left
-        );
-
-        uint8[3] memory colors = createColors(getTokenRandomness(tokenId));
-
-        for (uint256 i = 0; i < 256; i++) {
-            headImage = bytes.concat(headImage, abi.encodePacked(uint8(1)), abi.encodePacked(colors[imagedata[i]]));
-        }
-        return headImage;
-    }
-
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        INounsSeeder.Seed memory seed = getSeed(_tokenId);
-        ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
-        bytes memory headImage = getHeadImage(_tokenId);
-        parts[2] = ISVGRenderer.Part({image: headImage, palette: _getPalette(headImage)});
+       (randomNum, color) = createColor(randomNum);
+        (randomNum, bgcolor) = createColor(randomNum);
+        (randomNum, spotColor) = createColor(randomNum);
+        uint256[144] memory imageData = createImageData(randomNum);
 
-        uint256 randomBackground = uint256(getTokenRandomness(_tokenId)) % 2;
-        string memory background = descriptor.backgrounds(randomBackground);
+        uint256 size = 12;
+        uint256 scale = 10;
 
-        NFTDescriptorV2.TokenURIParams memory params = NFTDescriptorV2.TokenURIParams({
-            name: "My token that i will name later",
-            description: "test token",
-            parts: parts,
-            background: background
-        });
-        return NFTDescriptorV2.constructTokenURI(descriptor.renderer(), params);
+        string memory svgMarkup = string.concat(
+            "<svg width='",
+            Strings.toString(size * scale),
+            "' height='",
+            Strings.toString(size * scale),
+            "' viewBox='0 0 ",
+            Strings.toString(size * scale),
+            " ",
+            Strings.toString(size * scale),
+            "' xmlns='http://www.w3.org/2000/svg'>"
+        );
+        svgMarkup = string.concat(
+            svgMarkup,
+            "<rect width='",
+            Strings.toString(size * scale),
+            "' height='",
+            Strings.toString(size * scale),
+            "' fill='"
+        );
+        svgMarkup = string.concat(svgMarkup, bgcolor, "'/><g fill='", color, "'>");
+        for (uint256 i = 0; i < 144; i++) {
+            if (imageData[i] == 1) {
+                string memory row = Strings.toString((i % size) * scale);
+                string memory col = Strings.toString((i / size) * scale);
+                svgMarkup = string.concat(
+                    svgMarkup,
+                    "<rect width='",
+                    Strings.toString(scale),
+                    "' height='",
+                    Strings.toString(scale),
+                    "' x='",
+                    row,
+                    "' y='",
+                    col,
+                    "' />"
+                );
+            }
+        }
+        svgMarkup = string.concat(svgMarkup, "</g><g fill='", spotColor, "'>");
+        for (uint256 i = 0; i < 144; i++) {
+            if (imageData[i] == 2) {
+                string memory row = Strings.toString((i % size) * scale);
+                string memory col = Strings.toString((i / size) * scale);
+                svgMarkup = string.concat(
+                    svgMarkup,
+                    "<rect width='",
+                    Strings.toString(scale),
+                    "' height='",
+                    Strings.toString(scale),
+                    "' x='",
+                    row,
+                    "' y='",
+                    col,
+                    "' />"
+                );
+            }
+
     }
 
     function createColors(bytes32 randomNum) public pure returns (uint8[3] memory) {
@@ -103,7 +125,7 @@ contract Blockies is ERC721 {
     }
 
     function createImageData(bytes32 randomNum) internal pure returns (uint8[256] memory) {
-        uint8[256] memory data;
+        uint8[] memory data;
         for (uint8 y = 0; y < 16; y++) {
             uint8[8] memory row;
             for (uint8 x = 0; x < 8; x++) {
@@ -133,19 +155,6 @@ contract Blockies is ERC721 {
         return reversedArray;
     }
 
-    function getSeed(uint256 tokenId) internal view returns (INounsSeeder.Seed memory) {
-        // uint256 tokenId = _tokenIdCounter.current() + 1;
-        return seeder.generateSeed(tokenId, descriptor);
-    }
-
-    function getPartsForSeed(INounsSeeder.Seed memory seed) internal view returns (ISVGRenderer.Part[] memory) {
-        return descriptor.getPartsForSeed(seed);
-    }
-
-    function getBackground(INounsSeeder.Seed memory seed) internal view returns (string memory) {
-        return descriptor.backgrounds(seed.background);
-    }
-
     function getTokenRandomness(uint256 _tokenId) public view returns (bytes32) {
         address addressToRender = this.ownerOf(_tokenId);
         return keccak256(abi.encodePacked(addressToRender));
@@ -153,9 +162,5 @@ contract Blockies is ERC721 {
 
     function moreRandom(bytes32 randomNum) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(randomNum));
-    }
-
-    function _getPalette(bytes memory part) internal view returns (bytes memory) {
-        return descriptor.palettes(uint8(part[0]));
     }
 }
