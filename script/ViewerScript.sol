@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Blockies} from "../src/contracts/Blockies.sol";
+import {NounishBlockies} from "../src/contracts/NounishBlockies.sol";
 
 contract ViewerScript is Script {
     address seederAddress = 0xCC8a0FB5ab3C7132c1b2A0109142Fb112c4Ce515;
@@ -27,12 +27,14 @@ contract ViewerScript is Script {
 
     function run() public {
         vm.broadcast();
-        Blockies blockiesContract = new Blockies(seederAddress, descriptorAddress);
+        NounishBlockies blockiesContract = new NounishBlockies(seederAddress, descriptorAddress);
 
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(accounts[i % 10]);
-            blockiesContract.safeMint();
-            string memory endcodednft = blockiesContract.tokenURI(i);
+            string memory headstring = blockiesContract.getHeadString(accounts[i]);
+            emit log_string(headstring);
+            // blockiesContract.safeMint();
+            // string memory endcodednft = blockiesContract.tokenURI(i);
         }
         // emit log_string(endcodednft);
     }

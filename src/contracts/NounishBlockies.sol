@@ -12,7 +12,7 @@ import {NounsDescriptorV2} from "./NounsDescriptorV2.sol";
 import {ISVGRenderer} from "./interfaces/ISVGRenderer.sol";
 import {NFTDescriptorV2} from "./libs/NFTDescriptorV2.sol";
 
-contract NouniesBlockies is ERC721 {
+contract NounishBlockies is ERC721 {
     using Counters for Counters.Counter;
 
     INounsSeeder public seeder;
@@ -20,11 +20,11 @@ contract NouniesBlockies is ERC721 {
 
     Counters.Counter private _tokenIdCounter;
 
-    mapping (uint256 => INounsSeeder.Seed) public seeds;
+    mapping(uint256 => INounsSeeder.Seed) public seeds;
 
     event TokenMinted(address indexed to, uint256 indexed tokenId);
 
-    error NoOwner();
+    error NoOwner(uint256 tokenId);
 
     constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
         seeder = INounsSeeder(_seeder);
@@ -39,25 +39,40 @@ contract NouniesBlockies is ERC721 {
         emit TokenMinted(_to, tokenId);
     }
 
+    function getHeadString(address _a) public view returns (string memory) {
+        string memory _SVG_START_TAG =
+            '<svg width="160" height="160" viewBox="80 50 160 160" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">';
+        string memory _SVG_END_TAG = "</svg>";
+
+        ISVGRenderer renderer = ISVGRenderer(descriptor.renderer());
+        bytes memory headImage = getHeadImage(_a);
+        ISVGRenderer.Part memory head = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
+        string memory headString = renderer.generateSVGPart(head);
+
+        return string(
+            abi.encodePacked(
+                "data:image/svg+xml;base64,",
+                Base64.encode(bytes(abi.encodePacked(_SVG_START_TAG, headString, _SVG_END_TAG)))
+            )
+        );
+    }
+
     // Palette Index, Bounds [Top (Y), Right (X), Bottom (Y), Left (X)] (4 Bytes),
     // [Pixel Length (1 Byte), Color Index (1 Byte)][]
-    function getHeadImage(uint256 tokenId) public view returns (bytes memory) {
-        // if(owner == address(0)){
-        //     error NoOwner();
-        // }
-        uint8[256] memory imagedata = createImageData(getTokenRandomness(tokenId));
+    function getHeadImage(address _a) public view returns (bytes memory) {
+        uint8[256] memory imagedata = createImageData(getAddressRandomness(_a));
 
         bytes memory headImage;
 
         headImage = bytes.concat(
-            abi.encodePacked(uint8(0)),  // palette
-            abi.encodePacked(uint8(5)),  // top
+            abi.encodePacked(uint8(0)), // palette
+            abi.encodePacked(uint8(5)), // top
             abi.encodePacked(uint8(24)), // right
             abi.encodePacked(uint8(20)), // bottom
-            abi.encodePacked(uint8(8))   // left
+            abi.encodePacked(uint8(8)) // left
         );
 
-        uint8[3] memory colors = createColors(getTokenRandomness(tokenId));
+        uint8[3] memory colors = createColors(getAddressRandomness(_a));
 
         for (uint256 i = 0; i < 256; i++) {
             headImage = bytes.concat(headImage, abi.encodePacked(uint8(1)), abi.encodePacked(colors[imagedata[i]]));
@@ -68,21 +83,24 @@ contract NouniesBlockies is ERC721 {
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
         INounsSeeder.Seed memory seed = seeds[_tokenId];
         ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
-        bytes memory headImage = getHeadImage(_tokenId);
+
+        address addressToRender = this.ownerOf(_tokenId);
+
+        if (addressToRender == address(0)) {
+            revert NoOwner(_tokenId);
+        }
+
+        bytes memory headImage = getHeadImage(addressToRender);
         parts[2] = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
 
-        uint256 randomBackground = uint256(getTokenRandomness(_tokenId)) % 2;
+        uint256 randomBackground = uint256(getAddressRandomness(addressToRender)) % 2;
         string memory background = descriptor.backgrounds(randomBackground);
 
-        string memory name = string(abi.encodePacked('Nounish Blockie', _tokenId));
-        string memory description = string(abi.encodePacked('Noun ', _tokenId, ' is a member of the Nouns Community'));
+        string memory name = string(abi.encodePacked("Nounish Blockie", _tokenId));
+        string memory description = string(abi.encodePacked("Noun ", _tokenId, " is a member of the Nouns Community"));
 
-        NFTDescriptorV2.TokenURIParams memory params = NFTDescriptorV2.TokenURIParams({
-            name: name,
-            description: description,
-            parts: parts,
-            background: background
-        });
+        NFTDescriptorV2.TokenURIParams memory params =
+            NFTDescriptorV2.TokenURIParams({name: name, description: description, parts: parts, background: background});
         return NFTDescriptorV2.constructTokenURI(descriptor.renderer(), params);
     }
 
@@ -154,9 +172,8 @@ contract NouniesBlockies is ERC721 {
         return descriptor.backgrounds(seed.background);
     }
 
-    function getTokenRandomness(uint256 _tokenId) public view returns (bytes32) {
-        address addressToRender = this.ownerOf(_tokenId);
-        return keccak256(abi.encodePacked(addressToRender));
+    function getAddressRandomness(address _a) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(_a));
     }
 
     function moreRandom(bytes32 randomNum) public pure returns (bytes32) {
