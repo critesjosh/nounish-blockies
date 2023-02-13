@@ -20,6 +20,10 @@ contract NouniesBlockies is ERC721 {
 
     Counters.Counter private _tokenIdCounter;
 
+    mapping (uint256 => INounsSeeder.Seed) public seeds;
+
+    event TokenMinted(address indexed to, uint256 indexed tokenId);
+
     error NoOwner();
 
     constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
@@ -27,11 +31,12 @@ contract NouniesBlockies is ERC721 {
         descriptor = NounsDescriptorV2(_descriptor);
     }
 
-    function safeMint() public payable {
+    function mint(address _to) public payable {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
-        _mint(msg.sender, tokenId);
-        // _safeMint(msg.sender, tokenId);
+        _mint(_to, tokenId);
+        seeds[tokenId] = getSeed(tokenId);
+        emit TokenMinted(_to, tokenId);
     }
 
     // Palette Index, Bounds [Top (Y), Right (X), Bottom (Y), Left (X)] (4 Bytes),
@@ -45,11 +50,11 @@ contract NouniesBlockies is ERC721 {
         bytes memory headImage;
 
         headImage = bytes.concat(
-            abi.encodePacked(uint8(0)), // palette
-            abi.encodePacked(uint8(5)), // top
+            abi.encodePacked(uint8(0)),  // palette
+            abi.encodePacked(uint8(5)),  // top
             abi.encodePacked(uint8(24)), // right
             abi.encodePacked(uint8(20)), // bottom
-            abi.encodePacked(uint8(8)) // left
+            abi.encodePacked(uint8(8))   // left
         );
 
         uint8[3] memory colors = createColors(getTokenRandomness(tokenId));
@@ -61,7 +66,7 @@ contract NouniesBlockies is ERC721 {
     }
 
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        INounsSeeder.Seed memory seed = getSeed(_tokenId);
+        INounsSeeder.Seed memory seed = seeds[_tokenId];
         ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
         bytes memory headImage = getHeadImage(_tokenId);
         parts[2] = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
@@ -69,9 +74,12 @@ contract NouniesBlockies is ERC721 {
         uint256 randomBackground = uint256(getTokenRandomness(_tokenId)) % 2;
         string memory background = descriptor.backgrounds(randomBackground);
 
+        string memory name = string(abi.encodePacked('Nounish Blockie', _tokenId));
+        string memory description = string(abi.encodePacked('Noun ', _tokenId, ' is a member of the Nouns Community'));
+
         NFTDescriptorV2.TokenURIParams memory params = NFTDescriptorV2.TokenURIParams({
-            name: "My token that i will name later",
-            description: "test token",
+            name: name,
+            description: description,
             parts: parts,
             background: background
         });
