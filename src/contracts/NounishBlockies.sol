@@ -39,27 +39,15 @@ contract NounishBlockies is ERC721 {
         emit TokenMinted(_to, tokenId);
     }
 
-    function getHeadString(address _a) public view returns (string memory) {
-        string memory _SVG_START_TAG =
-            '<svg width="160" height="160" viewBox="80 50 160 160" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">';
-        string memory _SVG_END_TAG = "</svg>";
+    // function getNounishBlockie(address _a, uint256 _randomnessSeed) external {
+    //     INounsSeeder.Seed memory seed = getSeed(_randomnessSeed);
 
-        ISVGRenderer renderer = ISVGRenderer(descriptor.renderer());
-        bytes memory headImage = getHeadImage(_a);
-        ISVGRenderer.Part memory head = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
-        string memory headString = renderer.generateSVGPart(head);
-
-        return string(
-            abi.encodePacked(
-                "data:image/svg+xml;base64,",
-                Base64.encode(bytes(abi.encodePacked(_SVG_START_TAG, headString, _SVG_END_TAG)))
-            )
-        );
-    }
+    //     tokenURI();
+    // }
 
     // Palette Index, Bounds [Top (Y), Right (X), Bottom (Y), Left (X)] (4 Bytes),
     // [Pixel Length (1 Byte), Color Index (1 Byte)][]
-    function getHeadImage(address _a) public view returns (bytes memory) {
+    function getHeadImage(address _a) public pure returns (bytes memory) {
         uint8[256] memory imagedata = createImageData(getAddressRandomness(_a));
 
         bytes memory headImage;
@@ -80,28 +68,65 @@ contract NounishBlockies is ERC721 {
         return headImage;
     }
 
+    function renderNounishBlockie(address _a, uint256 _num) public view returns (string memory) {
+        INounsSeeder.Seed memory seed = getSeed(_num);
+
+        ISVGRenderer.Part[] memory parts;
+        string memory background;
+        (parts, background) = buildNounishBlockie(_a, seed);
+        ISVGRenderer.SVGParams memory params = ISVGRenderer.SVGParams({parts: parts, background: background});
+
+        string memory image = NFTDescriptorV2.generateSVGImage(descriptor.renderer(), params);
+        return string(abi.encodePacked("data:image/svg+xml;base64,", image));
+    }
+
+    function buildNounishBlockie(address _a, INounsSeeder.Seed memory seed)
+        internal
+        view
+        returns (ISVGRenderer.Part[] memory, string memory)
+    {
+        ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
+        bytes memory headImage = getHeadImage(_a);
+        parts[2] = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
+        return (parts, descriptor.backgrounds(seed.background));
+    }
+
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
         INounsSeeder.Seed memory seed = seeds[_tokenId];
-        ISVGRenderer.Part[] memory parts = getPartsForSeed(seed);
-
         address addressToRender = this.ownerOf(_tokenId);
 
         if (addressToRender == address(0)) {
             revert NoOwner(_tokenId);
         }
 
-        bytes memory headImage = getHeadImage(addressToRender);
-        parts[2] = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
+        ISVGRenderer.Part[] memory parts;
+        string memory background;
 
-        uint256 randomBackground = uint256(getAddressRandomness(addressToRender)) % 2;
-        string memory background = descriptor.backgrounds(randomBackground);
-
+        (parts, background) = buildNounishBlockie(addressToRender, seed);
         string memory name = string(abi.encodePacked("Nounish Blockie", _tokenId));
         string memory description = string(abi.encodePacked("Noun ", _tokenId, " is a member of the Nouns Community"));
 
         NFTDescriptorV2.TokenURIParams memory params =
             NFTDescriptorV2.TokenURIParams({name: name, description: description, parts: parts, background: background});
         return NFTDescriptorV2.constructTokenURI(descriptor.renderer(), params);
+    }
+
+    function getHeadSvg(address _a) external view returns (string memory) {
+        string memory _SVG_START_TAG =
+            '<svg width="160" height="160" viewBox="80 50 160 160" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">';
+        string memory _SVG_END_TAG = "</svg>";
+
+        ISVGRenderer renderer = ISVGRenderer(descriptor.renderer());
+        bytes memory headImage = getHeadImage(_a);
+        ISVGRenderer.Part memory head = ISVGRenderer.Part({image: headImage, palette: descriptor.palettes(uint8(0))});
+        string memory headString = renderer.generateSVGPart(head);
+
+        return string(
+            abi.encodePacked(
+                "data:image/svg+xml;base64,",
+                Base64.encode(bytes(abi.encodePacked(_SVG_START_TAG, headString, _SVG_END_TAG)))
+            )
+        );
     }
 
     function createColors(bytes32 randomNum) public pure returns (uint8[3] memory) {
@@ -159,20 +184,15 @@ contract NounishBlockies is ERC721 {
         return reversedArray;
     }
 
-    function getSeed(uint256 tokenId) internal view returns (INounsSeeder.Seed memory) {
-        // uint256 tokenId = _tokenIdCounter.current() + 1;
-        return seeder.generateSeed(tokenId, descriptor);
+    function getSeed(uint256 _num) internal view returns (INounsSeeder.Seed memory) {
+        return seeder.generateSeed(_num, descriptor);
     }
 
     function getPartsForSeed(INounsSeeder.Seed memory seed) internal view returns (ISVGRenderer.Part[] memory) {
         return descriptor.getPartsForSeed(seed);
     }
 
-    function getBackground(INounsSeeder.Seed memory seed) internal view returns (string memory) {
-        return descriptor.backgrounds(seed.background);
-    }
-
-    function getAddressRandomness(address _a) public view returns (bytes32) {
+    function getAddressRandomness(address _a) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_a));
     }
 

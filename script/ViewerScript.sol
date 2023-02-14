@@ -29,9 +29,9 @@ contract ViewerScript is Script {
         vm.broadcast();
         NounishBlockies blockiesContract = new NounishBlockies(seederAddress, descriptorAddress);
 
-        for (uint256 i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < 8; i++) {
             vm.prank(accounts[i % 10]);
-            string memory headstring = blockiesContract.getHeadString(accounts[i]);
+            string memory headstring = blockiesContract.renderNounishBlockie(accounts[i], 5);
             emit log_string(headstring);
             // blockiesContract.safeMint();
             // string memory endcodednft = blockiesContract.tokenURI(i);
