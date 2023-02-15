@@ -68,12 +68,10 @@ contract NounishBlockies is ERC721 {
         return headImage;
     }
 
-    function renderNounishBlockie(address _a, uint256 _num) public view returns (string memory) {
-        INounsSeeder.Seed memory seed = getSeed(_num);
-
+    function renderNounishBlockie(address _a, INounsSeeder.Seed memory _seed) public view returns (string memory) {
         ISVGRenderer.Part[] memory parts;
         string memory background;
-        (parts, background) = buildNounishBlockie(_a, seed);
+        (parts, background) = buildNounishBlockie(_a, _seed);
         ISVGRenderer.SVGParams memory params = ISVGRenderer.SVGParams({parts: parts, background: background});
 
         string memory image = NFTDescriptorV2.generateSVGImage(descriptor.renderer(), params);
