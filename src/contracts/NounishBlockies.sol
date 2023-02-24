@@ -26,7 +26,7 @@ contract NounishBlockies is ERC721 {
 
     error NoOwner(uint256 tokenId);
 
-    constructor(address _seeder, address _descriptor) ERC721("Blockies", "BLKS") {
+    constructor(address _seeder, address _descriptor) ERC721("NounishBlockies", "NoBS") {
         seeder = INounsSeeder(_seeder);
         descriptor = NounsDescriptorV2(_descriptor);
     }
