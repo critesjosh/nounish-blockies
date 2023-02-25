@@ -36,11 +36,16 @@ contract ViewerScript is Script {
             INounsSeeder seederContract = INounsSeeder(blockiesContract.seeder());
             INounsDescriptorV2 descriptorContract = INounsDescriptorV2(blockiesContract.descriptor());
             INounsSeeder.Seed memory seed = seederContract.generateSeed(i, descriptorContract);
-            string memory headstring = blockiesContract.renderNounishBlockie(accounts[i], seed);
+            string memory headstring = blockiesContract.renderNounishBlockie(0x9ae3b3C41b0466717fD53d4E2612611Ee8Ec9a84, seed);
             emit log_string(headstring);
+
             // blockiesContract.safeMint();
             // string memory endcodednft = blockiesContract.tokenURI(i);
         }
+
+
+            string memory head = blockiesContract.getHeadSvg(0x25219Db063Ab2124c011D63f860Bff6FfE1ac725);
+            emit log_string(head);
         // emit log_string(endcodednft);
     }
 }
