@@ -1,6 +1,6 @@
 # Nounish Blockies
 
-![download (5)](https://user-images.githubusercontent.com/18372439/221368367-00dd57c4-1a04-42bf-a965-f4e5df66fc7a.svg)
+![download (8)](https://user-images.githubusercontent.com/18372439/221368402-fb7840f1-10a5-4ccf-9dfa-6ba2447b7eb6.svg)
 
 Nounish blockies is an infinite, open edition, pay what you want (optionally free) 100% on-chain generative art project based on [Nouns](https://nouns.wtf) and [Blockies](https://github.com/topics/blockies) identicons. 
 
