@@ -8,6 +8,8 @@ The goal behind the project is to make the Nouns meme more accessible with cheap
 
 On Ethereum [here](https://etherscan.io/address/0x76152c311630bbe2b472afe779f478b293cfaed3). 
 
+[Collection on Opensea.](https://opensea.io/collection/nounishblockies)
+
 Mint on abi.ninja [here](https://abi.ninja/0x76152c311630bBE2b472afE779f478B293CFAed3/mainnet?functions=mint).
 
 ## Features
